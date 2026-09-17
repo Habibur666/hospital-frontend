@@ -11,13 +11,21 @@ import ResourceForm from '../../components/ui/ResourceForm'
 import { ROLE_LABELS } from '../../config/nav'
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
+// Doctors need an extra profile (specialty, fee, department) created at
+// the same time as their account, so they're created/managed from the
+// Doctors page instead — never through this generic role dropdown, to
+// avoid ever creating a "doctor" user with no matching doctor profile.
+const NON_DOCTOR_ROLE_OPTIONS = ROLE_OPTIONS.filter((r) => r.value !== 'doctor')
 
 // Fields shown when EDITING an existing user (password isn't editable here).
 const EDIT_FIELDS = [
   { name: 'first_name', label: 'First Name', required: true },
   { name: 'last_name', label: 'Last Name', required: true },
   { name: 'phone', label: 'Phone' },
-  { name: 'role', label: 'Role', type: 'select', options: ROLE_OPTIONS, required: true },
+  {
+    name: 'role', label: 'Role', type: 'select', options: NON_DOCTOR_ROLE_OPTIONS, required: true,
+    hint: 'To make someone a doctor, create them from the Doctors page instead.',
+  },
 ]
 
 // Fields shown when CREATING a new staff account (needs a password too).
@@ -26,7 +34,11 @@ const CREATE_FIELDS = [
   { name: 'last_name', label: 'Last Name', required: true },
   { name: 'email', label: 'Email', type: 'email', required: true },
   { name: 'phone', label: 'Phone' },
-  { name: 'role', label: 'Role', type: 'select', options: ROLE_OPTIONS.filter((r) => r.value !== 'patient'), required: true },
+  {
+    name: 'role', label: 'Role', type: 'select', required: true,
+    options: NON_DOCTOR_ROLE_OPTIONS.filter((r) => r.value !== 'patient'),
+    hint: 'For doctors, use the "Add Doctor" button on the Doctors page instead.',
+  },
   { name: 'password', label: 'Temporary Password', type: 'password', required: true, hint: '8+ characters. Share this with the new staff member securely.' },
 ]
 
