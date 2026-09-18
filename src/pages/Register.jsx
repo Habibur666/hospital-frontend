@@ -60,7 +60,7 @@ export default function Register() {
             <Input value={values.phone} onChange={(e) => setField('phone', e.target.value)} />
           </Field>
           <Field label="Password" required error={fieldErrors.password?.[0]} hint="8+ chars, upper, lower, digit, symbol">
-            <Input type="password" value={values.password} onChange={(e) => setField('password', e.target.value)} required />
+            <Input type="password" value={values.password} onChange={(e) => setField('password', e.target.value)} autoComplete="new-password" required />
           </Field>
 
           <p className="text-xs text-slate">

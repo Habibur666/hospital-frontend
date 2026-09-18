@@ -18,14 +18,14 @@ export const NAV_GROUPS = [
   {
     label: 'Overview',
     items: [
-      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin', 'hospital_admin'] },
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['super_admin', 'hospital_admin', 'doctor'] },
     ],
   },
   {
     label: 'Care',
     items: [
       { to: '/patients', label: 'Patients', icon: HeartPulse, roles: ['super_admin', 'hospital_admin', 'receptionist', 'doctor', 'cashier'] },
-      { to: '/doctors', label: 'Doctors', icon: Stethoscope, roles: null },
+      { to: '/doctors', label: 'Doctors', icon: Stethoscope, roles: ['super_admin', 'hospital_admin', 'receptionist', 'doctor', 'patient'] },
       { to: '/appointments', label: 'Appointments', icon: CalendarCheck, roles: ['doctor', 'receptionist', 'hospital_admin', 'super_admin', 'patient'] },
       { to: '/consultations', label: 'Consultation Notes', icon: ClipboardList, roles: ['super_admin', 'hospital_admin', 'doctor', 'patient'] },
       { to: '/prescriptions', label: 'Prescriptions', icon: Pill, roles: ['super_admin', 'hospital_admin', 'doctor', 'patient', 'pharmacist'] },
@@ -36,7 +36,7 @@ export const NAV_GROUPS = [
   {
     label: 'Operations',
     items: [
-      { to: '/pharmacy', label: 'Pharmacy', icon: PillBottle, roles: null },
+      { to: '/pharmacy', label: 'Pharmacy', icon: PillBottle, roles: ['super_admin', 'hospital_admin', 'pharmacist', 'doctor'] },
       { to: '/inventory', label: 'Inventory', icon: Boxes, roles: ['super_admin', 'hospital_admin', 'pharmacist'] },
       { to: '/billing', label: 'Billing', icon: Receipt, roles: ['super_admin', 'hospital_admin', 'cashier'] },
       { to: '/admissions', label: 'Admissions & Beds', icon: BedDouble, roles: ['super_admin', 'hospital_admin', 'doctor', 'receptionist'] },
@@ -73,7 +73,7 @@ export const ROLE_LABELS = {
 
 /** Where to send someone right after login, based on their role. */
 export function getDefaultRoute(role) {
-  if (['super_admin', 'hospital_admin'].includes(role)) return '/dashboard'
+  if (['super_admin', 'hospital_admin', 'doctor'].includes(role)) return '/dashboard'
   if (role === 'pharmacist') return '/pharmacy'
   if (role === 'cashier') return '/billing'
   if (role === 'lab_technician') return '/laboratory'

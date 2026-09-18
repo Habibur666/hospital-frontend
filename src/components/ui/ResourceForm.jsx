@@ -142,6 +142,7 @@ export default function ResourceForm({ fields, initialValues = {}, onSubmit, onC
                   placeholder={f.placeholder}
                   onChange={(e) => setValue(f.name, e.target.value)}
                   required={f.required}
+                  autoComplete={f.type === 'password' ? 'new-password' : f.type === 'email' ? 'off' : undefined}
                 />
               </Field>
             </div>

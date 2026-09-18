@@ -36,7 +36,7 @@ export default function Login() {
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@hospital.com" required />
         </Field>
         <Field label="Password" required>
-          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" required />
         </Field>
 
         {error && <p className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-500">{error}</p>}
