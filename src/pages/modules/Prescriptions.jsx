@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { api, apiErrorMessage } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
@@ -15,6 +15,9 @@ const EMPTY_ITEM = { medicine_name: '', dosage: '', frequency: '', duration: '' 
 export default function Prescriptions() {
   const { role } = useAuth()
   const showToast = useToast()
+  const isPatient = role === 'patient'
+
+  const [myPatient, setMyPatient] = useState(null) // null = loading, undefined = no profile yet
   const [patientId, setPatientId] = useState('')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
@@ -23,13 +26,33 @@ export default function Prescriptions() {
 
   const canCreate = role === 'doctor'
 
-  async function search(e) {
+  // Patients can't browse the full patient list (privacy), so instead we
+  // look up their own patient_id once and load their own prescriptions
+  // automatically.
+  useEffect(() => {
+    if (!isPatient) return
+    api.get('/patients/me')
+      .then((r) => {
+        setMyPatient(r.data.data)
+        setPatientId(String(r.data.data.id))
+      })
+      .catch(() => setMyPatient(undefined))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPatient])
+
+  useEffect(() => {
+    if (isPatient && patientId) search()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPatient, patientId])
+
+  async function search(e, idOverride) {
     e?.preventDefault()
-    if (!patientId) return
+    const idToUse = idOverride || patientId
+    if (!idToUse) return
     setLoading(true)
     setSearched(true)
     try {
-      const res = await api.get(`/prescriptions/patient/${patientId}`)
+      const res = await api.get(`/prescriptions/patient/${idToUse}`)
       setRows(res.data.data)
     } catch (error) {
       showToast(apiErrorMessage(error), 'error')
@@ -38,73 +61,93 @@ export default function Prescriptions() {
     }
   }
 
+  function handleCreated(createdForPatientId) {
+    setCreateOpen(false)
+    // Switch the visible list to whichever patient this prescription was
+    // just created for, so the doctor immediately sees what they just
+    // wrote — instead of silently refreshing whatever patient was
+    // previously searched (which might be a different patient, or nobody).
+    setPatientId(String(createdForPatientId))
+    search(null, createdForPatientId)
+  }
+
   return (
     <div>
       <PageHeader
         title="Prescriptions"
-        description="Doctor-issued prescriptions with one or more medicine items."
+        description={isPatient ? 'Your prescriptions.' : 'Doctor-issued prescriptions with one or more medicine items.'}
         actions={canCreate && <Button onClick={() => setCreateOpen(true)}><Plus size={16} /> New Prescription</Button>}
       />
 
-      <form onSubmit={search} className="mb-4 flex gap-2">
-        <div className="w-full max-w-xs">
-          <EntityPicker
-            endpoint="/patients" value={patientId} onChange={setPatientId}
-            getLabel={(p) => `${p.first_name} ${p.last_name}`} getSubLabel={(p) => p.phone}
-            placeholder="Search patient…"
-          />
+      {isPatient && myPatient === undefined && (
+        <div className="mb-4 rounded-lg bg-warning-50 px-3 py-3 text-sm text-warning-500">
+          We couldn't find a patient profile linked to your account yet. Please contact reception for help.
         </div>
-        <Button type="submit" variant="secondary">View Prescriptions</Button>
-      </form>
+      )}
 
-      <div className="space-y-4">
-        {loading && (
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-100 bg-white py-16 text-slate shadow-sm">
-            <Loader2 className="animate-spin" size={18} /> Loading…
+      {!isPatient && (
+        <form onSubmit={search} className="mb-4 flex gap-2">
+          <div className="w-full max-w-xs">
+            <EntityPicker
+              endpoint="/patients" value={patientId} onChange={setPatientId}
+              getLabel={(p) => `${p.first_name} ${p.last_name}`} getSubLabel={(p) => p.phone}
+              placeholder="Search patient…"
+            />
           </div>
-        )}
-        {!loading && rows.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-100 bg-white py-16 text-slate shadow-sm">
-            <Inbox size={28} className="text-slate-300" />
-            <p className="text-sm">{searched ? 'No prescriptions for this patient' : 'Pick a patient above to view prescriptions'}</p>
-          </div>
-        )}
-        {rows.map((p) => (
-          <div key={p.id} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="font-display font-semibold text-ink">Prescription #{p.id}</p>
-              <p className="text-xs text-slate">{p.created_at}</p>
+          <Button type="submit" variant="secondary">View Prescriptions</Button>
+        </form>
+      )}
+
+      {(!isPatient || myPatient) && (
+        <div className="space-y-4">
+          {loading && (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-100 bg-white py-16 text-slate shadow-sm">
+              <Loader2 className="animate-spin" size={18} /> Loading…
             </div>
-            {p.notes && <p className="mb-3 text-sm text-slate">{p.notes}</p>}
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="text-xs uppercase text-slate-400">
-                  <th className="py-1 pr-4">Medicine</th>
-                  <th className="py-1 pr-4">Dosage</th>
-                  <th className="py-1 pr-4">Frequency</th>
-                  <th className="py-1">Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {p.items.map((item) => (
-                  <tr key={item.id} className="border-t border-slate-50">
-                    <td className="py-1.5 pr-4">{item.medicine_name}</td>
-                    <td className="py-1.5 pr-4">{item.dosage || '—'}</td>
-                    <td className="py-1.5 pr-4">{item.frequency || '—'}</td>
-                    <td className="py-1.5">{item.duration || '—'}</td>
+          )}
+          {!loading && rows.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-slate-100 bg-white py-16 text-slate shadow-sm">
+              <Inbox size={28} className="text-slate-300" />
+              <p className="text-sm">{searched ? 'No prescriptions found' : 'Pick a patient above to view prescriptions'}</p>
+            </div>
+          )}
+          {rows.map((p) => (
+            <div key={p.id} className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-display font-semibold text-ink">Prescription #{p.id}</p>
+                <p className="text-xs text-slate">{p.created_at}</p>
+              </div>
+              {p.notes && <p className="mb-3 text-sm text-slate">{p.notes}</p>}
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-xs uppercase text-slate-400">
+                    <th className="py-1 pr-4">Medicine</th>
+                    <th className="py-1 pr-4">Dosage</th>
+                    <th className="py-1 pr-4">Frequency</th>
+                    <th className="py-1">Duration</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
-      </div>
+                </thead>
+                <tbody>
+                  {p.items.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-50">
+                      <td className="py-1.5 pr-4">{item.medicine_name}</td>
+                      <td className="py-1.5 pr-4">{item.dosage || '—'}</td>
+                      <td className="py-1.5 pr-4">{item.frequency || '—'}</td>
+                      <td className="py-1.5">{item.duration || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
 
       <CreateModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         defaultPatientId={patientId}
-        onCreated={() => { setCreateOpen(false); if (searched) search() }}
+        onCreated={handleCreated}
       />
     </div>
   )
@@ -118,6 +161,11 @@ function CreateModal({ open, onClose, defaultPatientId, onCreated }) {
   const [items, setItems] = useState([{ ...EMPTY_ITEM }])
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    if (open) setPatientId(defaultPatientId || '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   function updateItem(idx, field, value) {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)))
   }
@@ -128,17 +176,21 @@ function CreateModal({ open, onClose, defaultPatientId, onCreated }) {
       showToast('Please select a patient from the dropdown.', 'error')
       return
     }
+    if (!appointmentId) {
+      showToast('Please enter an appointment ID.', 'error')
+      return
+    }
     setSaving(true)
     try {
       await api.post('/prescriptions', {
         patient_id: patientId,
-        appointment_id: appointmentId || undefined,
+        appointment_id: appointmentId,
         notes,
         items: items.filter((it) => it.medicine_name),
       })
       showToast('Prescription created')
       setItems([{ ...EMPTY_ITEM }])
-      onCreated()
+      onCreated(patientId)
     } catch (error) {
       showToast(apiErrorMessage(error), 'error')
     } finally {
@@ -156,7 +208,7 @@ function CreateModal({ open, onClose, defaultPatientId, onCreated }) {
               getLabel={(p) => `${p.first_name} ${p.last_name}`} getSubLabel={(p) => p.phone} required
             />
           </Field>
-          <Field label="Appointment ID"><Input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} /></Field>
+          <Field label="Appointment ID" required><Input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} required /></Field>
         </div>
         <Field label="Notes"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
 
